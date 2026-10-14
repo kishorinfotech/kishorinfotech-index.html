@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>JARVIS v30 // GOD'S EYE C2 COMMAND CENTER</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #010501;
+            color: #00ff66;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 10px;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        /* CRT Scanline & Glow Overlay */
+        body::before {
+            content: " ";
+            display: block;
+            position: fixed;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.02), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.02));
+            z-index: 9999;
+            background-size: 100% 3px, 4px 100%;
+            pointer-events: none;
+        }
+
+        /* Matrix Canvas Background */
+        canvas#matrix {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+            opacity: 0.15;
+            pointer-events: none;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Top Status Bar */
+        .top-bar {
+            background: rgba(0, 18, 5, 0.95);
+            border: 1px solid #00ff66;
+            padding: 8px 14px;
+            font-size: 0.75rem;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 4px;
+            box-shadow: 0 0 12px rgba(0,255,102,0.25);
+            gap: 8px;
+        }
+        .status-badge {
+            background: #003311;
+            border: 1px solid #00ff66;
+            padding: 2px 8px;
+            color: #00ff66;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff66;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
+        }
+
+        /* CLI Interactive Panel */
+        .cli-box {
+            background: rgba(0, 12, 4, 0.96);
+            border: 1px solid #00ff66;
+            padding: 12px;
+            border-radius: 4px;
+            box-shadow: inset 0 0 15px rgba(0,255,102,0.15);
+        }
+        .cli-header {
+            font-size: 0.7rem;
+            font-weight: bold;
+            border-bottom: 1px dashed #004411;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+            color: #00dd55;
+            display: flex;
+            justify-content: space-between;
+        }
+        .cli-input-wrapper {
+            display: flex;
+            align-items: center;
+            margin-top: 6px;
+            border-top: 1px dashed #003311;
+            padding-top: 6px;
+        }
+        .cli-prompt {
+            color: #00ff66;
+            font-size: 0.8rem;
+            margin-right: 8px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .cli-input-wrapper input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #00ff66;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.8rem;
+            outline: none;
+        }
+
+        /* Responsive 3-Column Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        @media(min-width: 768px) {
+            .dashboard-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media(min-width: 1200px) {
+            .dashboard-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        /* Panel Styling */
+        .panel {
+            background: rgba(0, 10, 3, 0.94);
+            border: 1px solid #00ff66;
+            padding: 12px;
+            border-radius: 4px;
+            box-shadow: inset 0 0 15px rgba(0, 255, 102, 0.12);
+            min-height: 150px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: box-shadow 0.3s ease;
+        }
+        .panel:hover {
+            box-shadow: inset 0 0 20px rgba(0, 255, 102, 0.25), 0 0 10px rgba(0,255,102,0.2);
+        }
+        .panel::after {
+            content: '';
+            position: absolute;
+            top: 0; right: 0;
+            width: 8px; height: 8px;
+            border-top: 2px solid #00ff66;
+            border-right: 2px solid #00ff66;
+        }
+        .panel-title {
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-bottom: 1px dashed #005522;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+            display: flex;
+            justify-content: space-between;
+            color: #00ffaa;
+        }
+        .panel-content {
+            font-size: 0.68rem;
+            line-height: 1.4;
+            overflow-y: auto;
+            flex: 1;
+            white-space: pre-wrap;
+            color: #00cc55;
+            max-height: 130px;
+        }
+
+        /* Text Utilities */
+        .red-text { color: #ff4444; text-shadow: 0 0 3px rgba(255,68,68,0.4); }
+        .cyan-text { color: #00f3ff; text-shadow: 0 0 3px rgba(0,243,255,0.4); }
+        .amber-text { color: #ffb700; }
+        .blink { animation: blinkAnim 1s infinite; }
+        @keyframes blinkAnim { 0% { opacity: 0.3; } 50% { opacity: 1; } 100% { opacity: 0.3; } }
+
+        /* Action Footer */
+        .action-footer {
+            text-align: center;
+            padding: 10px;
+            margin-top: 5px;
+        }
+        .btn-download {
+            background: transparent;
+            border: 1px solid #00ff66;
+            color: #00ff66;
+            padding: 8px 18px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 0.75rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 8px rgba(0,255,102,0.2);
+        }
+        .btn-download:hover {
+            background: #00ff66;
+            color: #010501;
+            box-shadow: 0 0 15px #00ff66;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix"></canvas>
+
+    <div class="container">
+        <!-- 1. Top Status Bar -->
+        <div class="top-bar">
+            <span>⚡ JARVIS v30 // GOD'S EYE C2 COMMAND CENTER</span>
+            <span>CPU: <span id="cpuLoad">65.4%</span> | RAM: <span id="ramUsage">5.8GB/8.0GB</span></span>
+            <span>TIME: <span id="liveClock">00:00:00</span></span>
+            <span class="status-badge">ONLINE // SECURE</span>
+        </div>
+
+        <!-- 2. Interactive Command Center CLI -->
+        <div class="cli-box">
+            <div class="cli-header">
+                <span>INTERACTIVE COMMAND CENTER CLI (Prefix 'sh:' for Shell)</span>
+                <span class="cyan-text">[STATUS: READY]</span>
+            </div>
+            <div style="font-size: 0.65rem; color: #00aa44;">Type commands: 'help', 'scan', 'matrix', 'decrypt', 'clear', or 'sh: [cmd]'</div>
+            <div class="cli-input-wrapper">
+                <span class="cli-prompt">root@godseye:~#</span>
+                <input type="text" id="cliInput" autofocus autocomplete="off" spellcheck="false" placeholder="Enter command...">
+            </div>
+        </div>
+
+        <!-- 3. Responsive 3-Column Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Widget 1: Sys-Mon & Target Tracking -->
+            <div class="panel">
+                <div class="panel-title"><span>1. SYS-MON & LIVE TARGET TRACKING</span><span class="cyan-text">ACTIVE</span></div>
+                <div class="panel-content" id="sysMonBox">MODES: 14/14 Active  | TEMP: 40.5°C
+[+] Target Radar: Scanning sector 7...
+[+] Live Map Node: Connected [SECURE_VPN]
+[+] Target Lock: Lat 37.7749 N, Lon 122.4194 W</div>
+            </div>
+
+            <!-- Widget 2: Global Threat Intercept -->
+            <div class="panel">
+                <div class="panel-title"><span>2. Global Threat Intercept</span><span class="red-text blink">LIVE</span></div>
+                <div class="panel-content red-text" id="threatBox">[BLOCKED] New York [US] attack neutralized.
+[BLOCKED] Singapore [SG] attack neutralized.
+[BLOCKED] Tokyo [JP] attack neutralized.
+[WARNING] Frankfurt [DE] anomaly intercepted.</div>
+            </div>
+
+            <!-- Widget 3: Brute-Force Simulator -->
+            <div class="panel">
+                <div class="panel-title"><span>3. Brute-Force Simulator</span><span class="amber-text">RUNNING</span></div>
+                <div class="panel-content" id="bruteBox">[TRYING] word_9587 -> Failed
+[TRYING] word_6671 -> Failed
+[TRYING] word_9962 -> Failed
+[SUCCESS] Key verified: #ROOT_0X99</div>
+            </div>
+
+            <!-- Widget 4: Live Console Stream -->
+            <div class="panel">
+                <div class="panel-title"><span>4. Live Console Stream</span><span class="cyan-text">STREAM</span></div>
+                <div class="panel-content" id="consoleBox">[19:02:22] [Worker (RED_TEAM)]: JNI signature bypass lab active.
+[19:02:23] [Swarm (M-2)]: Buffer overflow injection simulation running.
+[19:02:24] [Swarm (M-3)]: Zero-Day Exploit Sandbox active.</div>
+            </div>
+
+            <!-- Widget 5: Satellite Telemetry -->
+            <div class="panel">
+                <div class="panel-title"><span>5. Satellite Telemetry</span><span class="cyan-text">ONLINE</span></div>
+                <div class="panel-content cyan-text" id="satBox">[SAT-01] Lat: 89.87 Lon: 92.87 [ALT: 450km]
+[SAT-02] Lat: 68.97 Lon: 168.56 [ALT: 520km]
+[SAT-03] Lat: 36.54 Lon: 73.28 [ALT: 410km]</div>
+            </div>
+
+            <!-- Widget 6: Exploit Payload Status -->
+            <div class="panel">
+                <div class="panel-title"><span>6. Exploit Payload Status</span><span class="red-text">DEPLOYED</span></div>
+                <div class="panel-content red-text">[PAYLOAD]: Buffer injection vector verified [OK]
+[PAYLOAD]: Privilege escalation sequence verified [OK]
+[PAYLOAD]: Sandbox kernel bypass verified [OK]</div>
+            </div>
+
+            <!-- Widget 7: Biometric Neural Link -->
+            <div class="panel">
+                <div class="panel-title"><span>7. Biometric Neural Link</span><span class="cyan-text">SYNCED</span></div>
+                <div class="panel-content cyan-text">[BIO01] Cortisol stable. Sync ratio 99.9%
+[BIO02] Heart rate: 72 bpm [STABLE]
+[BIO03] Neural synapse response time: 0.4ms</div>
+            </div>
+
+            <!-- Widget 8: SQLite Key Rotator -->
+            <div class="panel">
+                <div class="panel-title"><span>8. SQLite Key Rotator</span><span class="amber-text">ROTATING</span></div>
+                <div class="panel-content" id="vaultBox">[VAULT] SHA-256 rotating salt hash updated.
+[VAULT] Database token refreshed successfully.
+[VAULT] Encryption salt index #8809 rotated.</div>
+            </div>
+
+            <!-- Widget 9: Proxy Node Hopping -->
+            <div class="panel">
+                <div class="panel-title"><span>9. Proxy Node Hopping</span><span class="cyan-text">SECURE</span></div>
+                <div class="panel-content" id="proxyBox">[PROXY]: Node hop successful -> IP Masked [US-EAST].
+[PROXY]: Node hop successful -> IP Masked [EU-CENTRAL].
+[PROXY]: Tunnel encrypted via AES-256.</div>
+            </div>
+        </div>
+
+        <!-- Download Button -->
+        <div class="action-footer">
+            <button class="btn-download" onclick="downloadDashboard()">📥 DOWNLOAD HTML FILE</button>
+        </div>
+    </div>
+
+    <script>
+        // Live Clock Updater
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('liveClock').innerText = now.toTimeString().split(' ')[0];
+        }, 1000);
+
+        // Matrix Background Effect
+        const canvas = document.getElementById('matrix');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        const letters = '01ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()_+-=[]{}|;:,.<>?';
+        const fontSize = 11;
+        let columns = canvas.width / fontSize;
+        const drops = [];
+        for (let x = 0; x < columns; x++) drops[x] = 1;
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(1, 5, 1, 0.12)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00ff66';
+            ctx.font = fontSize + 'px monospace';
+            for (let i = 0; i < drops.length; i++) {
+                const text = letters.charAt(Math.floor(Math.random() * letters.length));
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            }
+        }
+        setInterval(drawMatrix, 35);
+
+        // Dynamic Real-time Live Log Stream
+        const randomIps = ["192.168.1.104", "10.0.4.52", "172.16.0.88", "45.33.22.11", "185.199.108.153", "203.0.113.42"];
+        const actions = ["Intercepted packet from node", "Handshake verified", "Bypassed firewall rule #402", "New TLS session established", "Encrypted stream routed"];
+
+        setInterval(() => {
+            let rndIp = randomIps[Math.floor(Math.random() * randomIps.length)];
+            let rndAct = actions[Math.floor(Math.random() * actions.length)];
+            let timestamp = new Date().toTimeString().split(' ')[0];
+            
+            let consoleBox = document.getElementById('consoleBox');
+            consoleBox.innerHTML += `\n[${timestamp}] ${rndAct} (${rndIp})`;
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }, 3500);
+
+        // Interactive CLI Command Processor
+        const cliInput = document.getElementById('cliInput');
+        cliInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                let cmdVal = cliInput.value.trim().toLowerCase();
+                let consoleBox = document.getElementById('consoleBox');
+                let timestamp = new Date().toTimeString().split(' ')[0];
+
+                if (!cmdVal) return;
+
+                if (cmdVal === 'clear') {
+                    consoleBox.innerHTML = `[${timestamp}] Console buffer cleared.`;
+                } else if (cmdVal === 'help') {
+                    consoleBox.innerHTML += `\n[${timestamp}] AVAILABLE COMMANDS:\n - scan : Run system vulnerability scan\n - decrypt : Run hash decryption sequence\n - matrix : Toggle matrix opacity\n - clear : Clear console\n - sh: [cmd] : Execute shell simulation`;
+                } else if (cmdVal === 'scan') {
+                    consoleBox.innerHTML += `\n[${timestamp}] [+] Initiating deep port scan across 65,535 ports...\n[+] All nodes secure. Zero vulnerabilities detected.`;
+                } else if (cmdVal === 'decrypt') {
+                    consoleBox.innerHTML += `\n[${timestamp}] [+] Brute-forcing SHA-256 hash sequence...\n[+] Access Granted: ROOT PRIVILEGES UNLOCKED`;
+                } else if (cmdVal.startsWith('sh:')) {
+                    let shellCmd = cmdVal.replace('sh:', '').trim();
+                    consoleBox.innerHTML += `\n[${timestamp}] executing shell -> ${shellCmd}\n[OK] Process completed with code 0.`;
+                } else {
+                    consoleBox.innerHTML += `\n[${timestamp}] root@godseye:~$ ${cliInput.value}\nCommand executed successfully.`;
+                }
+
+                cliInput.value = "";
+                consoleBox.scrollTop = consoleBox.scrollHeight;
+            }
+        });
+
+        // Download HTML File Helper
+        function downloadDashboard() {
+            const htmlContent = document.documentElement.outerHTML;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'jarvis_gods_eye_c2.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
